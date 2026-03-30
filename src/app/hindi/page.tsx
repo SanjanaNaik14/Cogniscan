@@ -35,6 +35,7 @@ export default function PatientPortalHindi() {
                 <AttentionCard />
                 <VisualNamingCard />
                 <ReactionCard />
+              
                 <RecallCard />
                 <SpeechFluencyCard />
               </>
@@ -62,10 +63,10 @@ export default function PatientPortalHindi() {
   );
 }
 
+
 // ── PROGRESS PANEL ──────────────
 function ProgressPanel() {
   const { scores, medicalProfile, prediction, isLoadingPrediction } = useAssessment();
-  const router = useRouter();
 
   const completedCount = [
     scores.orientation.score,
@@ -78,12 +79,6 @@ function ProgressPanel() {
   ].filter(v => v !== null).length;
 
   const allDone = completedCount === 7;
-
-  useEffect(() => {
-    if (prediction && allDone) {
-      router.push('/caregiver');
-    }
-  }, [prediction, allDone, router]);
 
   return (
     <div className="mt-8 pt-6 border-t border-slate-700 space-y-3">
@@ -107,7 +102,7 @@ function ProgressPanel() {
         {isLoadingPrediction
           ? '⏳ AI मॉडल चल रहा है...'
           : allDone && prediction
-            ? '✅ डैशबोर्ड पर जा रहे हैं...'
+            ? '✅ मूल्यांकन पूर्ण! डॉक्टर लॉगिन पर क्लिक करें।'
             : allDone
               ? '⏳ परिणामों का विश्लेषण...'
               : !medicalProfile
@@ -124,7 +119,8 @@ function MedicalIntakeForm() {
   const [form, setForm] = useState({
     age: '', gender: '0', educationyears: '',
     diabetes: '0', smoking: '0',
-    hypertension: '0', hypercholesterolemia: '0',svdSimple: '0', svdAmended: '0'
+    hypertension: '0', hypercholesterolemia: '0',
+    svdSimple: '0', svdAmended: '0'
   });
 
   if (medicalProfile) return (
@@ -150,14 +146,14 @@ function MedicalIntakeForm() {
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">उम्र (Age)</label>
           <input type="number" value={form.age}
             onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400 text-slate-900 font-semibold placeholder:text-slate-400"
             placeholder="उदाहरण: 72" />
         </div>
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">लिंग (Gender)</label>
           <select value={form.gender}
             onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-900 font-semibold">
             <option value="0">पुरुष (Male)</option>
             <option value="1">महिला (Female)</option>
           </select>
@@ -166,14 +162,14 @@ function MedicalIntakeForm() {
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">शिक्षा के वर्ष (Education Years)</label>
           <input type="number" value={form.educationyears}
             onChange={e => setForm(f => ({ ...f, educationyears: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400 text-slate-900 font-semibold placeholder:text-slate-400"
             placeholder="उदाहरण: 12" />
         </div>
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">धूम्रपान (Smoking Status)</label>
           <select value={form.smoking}
             onChange={e => setForm(f => ({ ...f, smoking: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-900 font-semibold">
             <option value="0">कभी नहीं (Never)</option>
             <option value="1">पहले पीते थे (Former)</option>
             <option value="2">वर्तमान में पीते हैं (Current)</option>

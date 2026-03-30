@@ -16,15 +16,7 @@ export default function PatientPortal() {
             <p className="text-slate-500 font-medium">Patient Assessment Portal</p>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Link href="/hindi" className="bg-indigo-100 text-indigo-700 px-6 py-2 rounded-full font-bold text-sm hover:bg-indigo-200 transition-colors shadow-sm flex items-center">
-              🌐 हिंदी में बदलें
-            </Link>
-            <Link href="/caregiver" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-full font-bold text-sm transition-colors shadow-lg">
-              Caregiver Login →
-            </Link>
-          </div>
-
+        
           
             {/* NEW TOGGLE BUTTON */}
             <Link href="/hindi" className="bg-indigo-100 text-indigo-700 px-6 py-2 rounded-full font-bold text-sm hover:bg-indigo-200 transition-colors shadow-sm flex items-center">
@@ -75,9 +67,9 @@ export default function PatientPortal() {
 }
 
 // ── PROGRESS PANEL ─────────────────────────────────────────────
+// ── PROGRESS PANEL ──────────────
 function ProgressPanel() {
   const { scores, medicalProfile, prediction, isLoadingPrediction } = useAssessment();
-  const router = useRouter();
 
   const completedCount = [
     scores.orientation.score,
@@ -91,9 +83,7 @@ function ProgressPanel() {
 
   const allDone = completedCount === 7;
 
-  useEffect(() => {
-    if (prediction && allDone) router.push('/caregiver');
-  }, [prediction, allDone]);
+  // Auto-redirect removed! It will now stay on the page.
 
   return (
     <div className="mt-8 pt-6 border-t border-slate-700 space-y-3">
@@ -102,21 +92,27 @@ function ProgressPanel() {
         <span className="text-xs text-slate-400 font-bold">{completedCount} / 7</span>
       </div>
       <div className="w-full bg-slate-700 rounded-full h-1.5">
-        <div className="h-1.5 rounded-full bg-cyan-400 transition-all duration-500"
-          style={{ width: `${(completedCount / 7) * 100}%` }} />
+        <div
+          className="h-1.5 rounded-full bg-cyan-400 transition-all duration-500"
+          style={{ width: `${(completedCount / 7) * 100}%` }}
+        />
       </div>
       <div className={`w-full py-3 px-4 rounded-2xl text-sm font-bold text-center ${
-        isLoadingPrediction     ? 'bg-cyan-500/20 text-cyan-300 animate-pulse' :
-        allDone && prediction   ? 'bg-emerald-500/20 text-emerald-300' :
-        allDone                 ? 'bg-cyan-500/10 text-cyan-400 animate-pulse' :
-        !medicalProfile         ? 'bg-slate-700 text-slate-500' :
-                                  'bg-slate-700 text-slate-400'
+        isLoadingPrediction          ? 'bg-cyan-500/20 text-cyan-300 animate-pulse' :
+        allDone && prediction        ? 'bg-emerald-500/20 text-emerald-300' :
+        allDone                      ? 'bg-cyan-500/10 text-cyan-400 animate-pulse' :
+        !medicalProfile              ? 'bg-slate-700 text-slate-500' :
+                                       'bg-slate-700 text-slate-400'
       }`}>
-        {isLoadingPrediction      ? '⏳ Running AI Model...'
-          : allDone && prediction ? '✅ Redirecting to dashboard...'
-          : allDone               ? '⏳ Analyzing results...'
-          : !medicalProfile       ? 'Complete profile first'
-          : `${completedCount}/7 modules complete`}
+        {isLoadingPrediction
+          ? '⏳ Running AI Model...'
+          : allDone && prediction
+            ? '✅ Assessment Complete! Click Caregiver Login.'
+            : allDone
+              ? '⏳ Analyzing results...'
+              : !medicalProfile
+                ? 'Complete profile first'
+                : `${completedCount}/7 modules complete`}
       </div>
     </div>
   );
@@ -156,14 +152,14 @@ function MedicalIntakeForm() {
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Age</label>
           <input type="number" value={form.age}
             onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+           className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400 text-slate-900 font-semibold placeholder:text-slate-400"
             placeholder="e.g. 72" />
         </div>
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Gender</label>
           <select value={form.gender}
             onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-900 font-semibold">
             <option value="0">Male</option>
             <option value="1">Female</option>
           </select>
@@ -172,14 +168,14 @@ function MedicalIntakeForm() {
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Years of Education</label>
           <input type="number" value={form.educationyears}
             onChange={e => setForm(f => ({ ...f, educationyears: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-400 text-slate-900 font-semibold placeholder:text-slate-400"
             placeholder="e.g. 12" />
         </div>
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Smoking Status</label>
           <select value={form.smoking}
             onChange={e => setForm(f => ({ ...f, smoking: e.target.value }))}
-            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-900 font-semibold">
             <option value="0">Never</option>
             <option value="1">Former</option>
             <option value="2">Current</option>
@@ -284,7 +280,7 @@ function OrientationCard() {
       <p className="text-slate-500 mb-6">What is the current year, and what city are you in?</p>
       <div className="flex space-x-4">
         <input type="text" value={ans} onChange={e => setAns(e.target.value)}
-          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-900 font-semibold placeholder:text-slate-400"
           placeholder="Type your answer..." />
         <button onClick={() => setScore('orientation', { score: ans.includes("2026") ? 5 : 2, time: null })}
           className="bg-slate-900 text-white px-8 font-bold rounded-xl">Submit</button>
@@ -432,8 +428,8 @@ function AttentionCard() {
       <p className="text-slate-500 mb-6">Spell the word <strong>"WORLD"</strong> backwards.</p>
       <div className="flex space-x-4">
         <input type="text" value={ans} onChange={e => setAns(e.target.value)}
-          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl uppercase tracking-widest"
-          placeholder="W - O - R - L - D" />
+          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-900 font-semibold placeholder:text-slate-400"
+          placeholder="type the word backwards" />
         <button onClick={() => setScore('attention', { score: ans.toLowerCase().replace(/\s/g, '') === "dlrow" ? 5 : 0, time: null })}
           className="bg-slate-900 text-white px-8 font-bold rounded-xl">Submit</button>
       </div>
