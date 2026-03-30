@@ -95,8 +95,8 @@ function mapToMLFeatures(scores: ClinicalScores, medical: MedicalProfile) {
     smoking: medical.smoking,
     hypertension: medical.hypertension,
     hypercholesterolemia: medical.hypercholesterolemia,
-    SVD_Simple:   medical.svdSimple   ?? 0,
-    SVD_Amended:  medical.svdAmended  ?? 0, // Key names must match Python exactly
+    "SVD Simple Score":   medical.svdSimple   ?? 0,
+    "SVD Amended Score":  medical.svdAmended  ?? 0, // Key names must match Python exactly
   };
 }
 

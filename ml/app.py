@@ -11,7 +11,7 @@ imputer = joblib.load('cogni_imputer2.pkl')
 FEATURES = [
   'age','gender','educationyears','EF','PS','Global',
   'diabetes','smoking','hypertension','hypercholesterolemia',
-  'SVD_Simple','SVD_Amended'
+  'SVD Simple Score','SVD Amended Score'
 ]
 
 @app.route('/predict', methods=['POST'])
