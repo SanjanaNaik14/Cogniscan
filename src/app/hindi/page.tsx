@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef,useEffect} from 'react';
 import Link from 'next/link';
 import { useAssessment } from '@/context/AssessmentContext';
 
@@ -119,6 +119,19 @@ function ProgressPanel() {
 export default function PatientPortalHindi() {
   const { scores, medicalProfile } = useAssessment();
 
+  // Calculate if all 7 modules are done
+  const completedCount = [
+    scores.orientation.score,
+    scores.registration.score,
+    scores.attention.score,
+    scores.animalNaming.score,
+    scores.reactionTime.score,
+    scores.recall.score,
+    scores.speechAnalysis.clarity,
+  ].filter(v => v !== null).length;
+
+  const isAssessmentComplete = completedCount === 7;
+
   return (
     <main className="min-h-screen bg-[#F8FAFC] p-6 lg:p-12">
       <div className="max-w-6xl mx-auto">
@@ -151,6 +164,32 @@ export default function PatientPortalHindi() {
                 <SpeechFluencyCard />
               </>
             )}
+
+            {/* ========================================== */}
+            {/* 🧠 THE "GO TO GAMES" UNLOCKABLE BANNER     */}
+            {/* ========================================== */}
+            {isAssessmentComplete && (
+              <div className="mt-12 p-8 bg-gradient-to-br from-indigo-50 to-blue-100 border-2 border-indigo-200 rounded-3xl shadow-xl text-center transform transition-all duration-500 hover:scale-[1.02] animate-in fade-in zoom-in">
+                <div className="flex justify-center mb-4">
+                  <span className="text-6xl animate-bounce">🧠</span>
+                </div>
+                <h3 className="text-3xl font-black text-indigo-900 mb-2 tracking-tight">
+                  मूल्यांकन पूरा हुआ! (Assessment Complete!)
+                </h3>
+                <p className="text-lg text-indigo-700 mb-8 font-medium max-w-xl mx-auto">
+                  अपने दिमाग को सक्रिय और स्वस्थ रखने के लिए हमारे विशेष मस्तिष्क व्यायाम आज़माएं। 
+                  (Try our special daily brain exercises to keep your mind active and healthy.)
+                </p>
+                <Link 
+                  href="/hindi/games" 
+                  className="inline-flex items-center gap-3 bg-indigo-600 text-white font-extrabold text-xl px-10 py-5 rounded-2xl hover:bg-indigo-700 hover:shadow-indigo-500/30 transition-all shadow-lg"
+                >
+                  मस्तिष्क कसरत शुरू करें (Start Brain Workout) →
+                </Link>
+              </div>
+            )}
+            {/* ========================================== */}
+            
           </section>
 
           <aside className="space-y-6">
@@ -238,13 +277,19 @@ function MedicalIntakeForm() {
         </div>
         <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100">
           <div>
-            <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SVD Simple Score</label>
+          <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+  SVD Simple Score
+  <span className="text-amber-500/70 lowercase ml-1">(Optional / From MRI)</span>
+</label>
             <input type="number" min="0" max="4" value={form.svdSimple}
               onChange={e => setForm(f => ({ ...f, svdSimple: e.target.value }))}
               className="w-full mt-1 p-2 bg-white border border-amber-200 rounded-lg text-amber-900 font-bold" />
           </div>
           <div>
-            <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SVD Amended Score</label>
+          <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+  SVD Amended Score
+  <span className="text-amber-500/70 lowercase ml-1">(Optional / From MRI)</span>
+</label>
             <input type="number" min="0" max="4" value={form.svdAmended}
               onChange={e => setForm(f => ({ ...f, svdAmended: e.target.value }))}
               className="w-full mt-1 p-2 bg-white border border-amber-200 rounded-lg text-amber-900 font-bold" />
@@ -930,70 +975,179 @@ function RecallCard() {
     </div>
   );
 }
+// ── TEST 7: SPONTANEOUS SPEECH + REAL FACIAL ML ────────────────
+import * as faceapi from 'face-api.js';
 
-// ── TEST 7: SPONTANEOUS SPEECH ─────────────────────────────────
 function SpeechFluencyCard() {
   const { scores, setScore } = useAssessment();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [metrics, setMetrics] = useState({
     hesitations: 0, repetitions: 0, wordCount: 0,
-    keywordsFound: 0, transcript: "", matchedWordsList: [] as string[]
+    keywordsFound: 0, transcript: "", matchedWordsList: [] as string[],
+    facialScore: 0
   });
   const [testPhase, setTestPhase] = useState<'idle'|'ready'|'results'>('idle');
   const [countdown, setCountdown] = useState(20);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const faceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  
+  // Array to store the "neutral" expression scores over the 20 seconds
+  const expressionHistory = useRef<number[]>([]);
 
-  if (scores.speechAnalysis.clarity !== null)
-    return <CompletedCard title="सहज भाषण (Speech Analysis)" subtitle={`स्पष्टता स्कोर: ${scores.speechAnalysis.clarity}%`} />;
+  // 1. Load ML Models on component mount
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+          faceapi.nets.faceExpressionNet.loadFromUri('/models')
+        ]);
+        setModelsLoaded(true);
+      } catch (err) {
+        console.error("Failed to load Face ML models. Check your /public/models folder.", err);
+      }
+    };
+    loadModels();
+  }, []);
 
-  const startSpeechTask = () => {
-    setTestPhase('ready'); // UI updates instantly
-    speak("इस चित्र में आप जो कुछ भी देखते हैं, उसका विस्तार से वर्णन करें।", 0.9);
+  if (scores.speechAnalysis.clarity !== null) return <CompletedCard title="सहज भाषण (Speech & Face ML)" subtitle={`स्पष्टता: ${scores.speechAnalysis.clarity}% | चेहरे का स्कोर: ${scores.facialScore}%`} />;
+
+  const speakAndWait = (text: string, rate = 0.85) => new Promise<void>(resolve => {
+    if (!('speechSynthesis' in window)) { resolve(); return; }
+    const u = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    u.voice = voices.find(v => v.lang.includes('hi-IN') || v.name.includes('Lekha')) || voices[0];
+    u.rate = rate; u.pitch = 1.1;
+    u.onend = () => resolve(); u.onerror = () => resolve();
+    window.speechSynthesis.speak(u);
+  });
+
+  const startSpeechTask = async () => {
+    if (!modelsLoaded) {
+      alert("AI Models are still loading. Please wait a moment.");
+      return;
+    }
+    setTestPhase('ready');
+    await speakAndWait("इस चित्र में आप जो कुछ भी देखते हैं, उसका विस्तार से वर्णन करें। आपका कैमरा चालू हो जाएगा।", 0.9);
   };
 
   const toggleRecording = async () => {
     if (isRecording && mediaRecorderRef.current) {
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      mediaRecorderRef.current.stop(); return;
+      if (faceIntervalRef.current) clearInterval(faceIntervalRef.current);
+      mediaRecorderRef.current.stop(); 
+      return;
     }
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Get BOTH Audio and Video
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      expressionHistory.current = []; // Reset history
+      
+      // Start Facial ML Scanning Loop (Every 1 second)
+      faceIntervalRef.current = setInterval(async () => {
+        if (videoRef.current && !videoRef.current.paused) {
+          const detections = await faceapi.detectSingleFace(
+            videoRef.current, 
+            new faceapi.TinyFaceDetectorOptions()
+          ).withFaceExpressions();
+          
+          if (detections) {
+            // Save how "neutral" the face is (0.0 to 1.0)
+            expressionHistory.current.push(detections.expressions.neutral);
+          }
+        }
+      }, 1000);
+
       const recorder = new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      
       recorder.onstop = async () => {
-        setIsRecording(false); setIsProcessing(true); stream.getTracks().forEach(t => t.stop());
+        setIsRecording(false); 
+        setIsProcessing(true); 
+        if (faceIntervalRef.current) clearInterval(faceIntervalRef.current);
+        stream.getTracks().forEach(t => t.stop()); // Turn off webcam
+        
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         if (blob.size < 1000) { setIsProcessing(false); return; }
         const fd = new FormData(); fd.append('file', blob);
+        
         try {
+          // 1. Process Audio Transcript
           const res = await fetch('/api/transcribe', { method: 'POST', body: fd });
           const data = await res.json();
+          
           if (data.transcript) {
             const rawText = data.transcript.toLowerCase();
-            const words = rawText.split(/[\s,।!?]+/).filter(Boolean);
-            const hesitationMarkers = ['अह','उम','हम्म','आह', 'uh', 'um', 'hmm', 'ah'];
-            const hesitations = words.filter((w: string) => hesitationMarkers.includes(w)).length;
+            const words = rawText.split(/[\s,।!?]+/).filter(Boolean); 
+            const hesitations = words.filter((w: string) => ['अह','उम','हम्म','आह', 'uh', 'um', 'hmm', 'ah'].includes(w)).length;
             const TARGET_KEYWORDS = ['लड़का', 'लड़के', 'कुकी', 'बिस्कुट', 'मां', 'माता', 'औरत', 'महिला', 'पानी', 'सिंक', 'गिर', 'कुर्सी', 'स्टूल'];
             const matchedWordsList = TARGET_KEYWORDS.filter(kw => rawText.includes(kw));
+            
             let repetitions = 0;
             for (let i = 0; i < words.length - 1; i++) { if (words[i] === words[i+1]) repetitions++; }
+            
             let penalty = 0;
-            if (hesitations > 3)          penalty += 15;
-            if (words.length < 8)         penalty += 20;
-            if (matchedWordsList.length < 3) penalty += 25;
-            if (repetitions > 1)          penalty += 15;
-            const finalScore = Math.max(0, Math.min(100, 100 - penalty));
-            setMetrics({ hesitations, repetitions, wordCount: words.length, keywordsFound: matchedWordsList.length, transcript: data.transcript, matchedWordsList });
-            setScore('speechAnalysis', { clarity: finalScore, hesitations });
+            if (hesitations > 2) penalty += 20; // Stricter on hesitations
+            if (words.length < 8) penalty += 30; // Stricter on length
+            
+            // Stricter on keywords
+            if (matchedWordsList.length === 0) penalty += 50; 
+            else if (matchedWordsList.length < 3) penalty += 30;
+            
+            if (repetitions > 1) penalty += 20;
+            
+            let finalClarityScore = Math.max(0, Math.min(100, 100 - penalty));
+            
+            // THE DEMO FIX: If the mic picks up background noise but NO keywords
+            if (matchedWordsList.length === 0) {
+              finalClarityScore = Math.min(finalClarityScore, 35); // Never score higher than 35% if they don't describe the image
+            }
+            if (words.length <= 2) {
+              finalClarityScore = 0; // Absolute silence or just 1 random noise word
+            }
+
+            // 2. Process Facial Expressions (The Magic)
+            let avgNeutral = 0;
+            if (expressionHistory.current.length > 0) {
+              const sum = expressionHistory.current.reduce((a, b) => a + b, 0);
+              avgNeutral = sum / expressionHistory.current.length;
+            }
+            
+            // If they are 100% neutral the whole time, score is 0. If they show emotion, score goes up to 100.
+            const calculatedFacialScore = Math.round(Math.max(0, 100 - (avgNeutral * 100)));
+
+            setMetrics({ 
+              hesitations, repetitions, wordCount: words.length, keywordsFound: matchedWordsList.length, transcript: data.transcript, matchedWordsList,
+              facialScore: calculatedFacialScore
+            });
+            
+            // Save to Context
+            setScore('speechAnalysis', { clarity: finalClarityScore, hesitations });
+            setScore('facialScore', calculatedFacialScore);
+            
             setTestPhase('results');
           }
         } catch {} finally { setIsProcessing(false); }
       };
-      recorder.start(); mediaRecorderRef.current = recorder; setIsRecording(true); setCountdown(20);
+      
+      recorder.start(); 
+      mediaRecorderRef.current = recorder; 
+      setIsRecording(true); 
+      setCountdown(20);
+      
       countdownIntervalRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
@@ -1004,7 +1158,7 @@ function SpeechFluencyCard() {
           return prev - 1;
         });
       }, 1000);
-    } catch { alert("Microphone blocked."); }
+    } catch { alert("Microphone or Camera blocked."); }
   };
 
   return (
@@ -1012,48 +1166,59 @@ function SpeechFluencyCard() {
       <div className="flex items-center space-x-3 mb-6">
         <div className="bg-indigo-50 w-12 h-12 rounded-xl flex items-center justify-center text-indigo-500 text-2xl">🎙️</div>
         <div>
-          <h3 className="text-xl font-bold text-slate-800">मॉड्यूल 7: सहज भाषण (Spontaneous Speech)</h3>
-          <p className="text-slate-500 text-sm">चित्र वर्णन</p>
+          <h3 className="text-xl font-bold text-slate-800">मॉड्यूल 7: सहज भाषण (Speech & Biometrics)</h3>
+          <p className="text-slate-500 text-sm">
+            {modelsLoaded ? "🟢 Face ML Ready" : "⏳ Loading Face ML Models..."}
+          </p>
         </div>
       </div>
+
       {testPhase === 'idle' && (
-        <button onClick={startSpeechTask} className="w-full bg-indigo-100 text-indigo-700 py-6 font-bold rounded-xl hover:bg-indigo-200 transition-all flex items-center justify-center space-x-3 border border-indigo-200">
+        <button onClick={startSpeechTask} disabled={!modelsLoaded} className="w-full bg-indigo-100 text-indigo-700 py-6 font-bold rounded-xl hover:bg-indigo-200 disabled:opacity-50 transition-all flex items-center justify-center space-x-3 border border-indigo-200">
           <span className="text-2xl">🔊</span><span className="text-lg">चित्र वर्णन कार्य शुरू करें</span>
         </button>
       )}
+
       {testPhase === 'ready' && (
         <div className="space-y-6 animate-in fade-in">
-          <p className="text-slate-600 font-medium">इस चित्र में आप जो कुछ भी देखते हैं, उसका विस्तार से वर्णन करें।</p>
-          <img src="/cookietheft.jpg" alt="Cookie Theft Clinical Image"
-            className="w-full h-48 object-cover rounded-xl border-4 border-slate-50 grayscale contrast-125" />
+          <div className="flex gap-4">
+            <img src="/cookietheft.jpg" alt="Cookie Theft" className="w-1/2 h-48 object-cover rounded-xl border-4 border-slate-50 grayscale contrast-125" />
+            
+            <div className="w-1/2 h-48 bg-slate-900 rounded-xl relative overflow-hidden border-4 border-slate-900 flex items-center justify-center">
+              {!isRecording && <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">Camera Standby</span>}
+              <video ref={videoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isRecording ? 'opacity-100' : 'opacity-0'}`} />
+              
+              {isRecording && (
+                <>
+                  <div className="absolute inset-0 border-2 border-cyan-500/30 rounded-lg m-2"></div>
+                  <div className="absolute top-2 right-2 bg-rose-500 text-white text-[8px] font-black px-2 py-1 rounded-sm animate-pulse tracking-widest">REC / ML ACTIVE</div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <p className="text-slate-600 font-medium text-center">इस चित्र में आप जो कुछ भी देखते हैं, उसका विस्तार से वर्णन करें।</p>
+          
           <button onClick={toggleRecording} disabled={isProcessing}
-            className={`w-full text-white py-4 font-bold rounded-xl transition-all shadow-lg ${isRecording ? 'bg-rose-500 animate-pulse' : isProcessing ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-800'}`}>
-            {isRecording ? `🔴 रिकॉर्डिंग... ${countdown}s में बंद हो जाएगी` : isProcessing ? '⏳ AI जांच रहा है...' : '🎤 वर्णन करना शुरू करने के लिए टैप करें'}
+            className={`w-full text-white py-4 font-bold rounded-xl transition-all shadow-lg ${isRecording ? 'bg-rose-500' : isProcessing ? 'bg-slate-400' : 'bg-slate-900 hover:bg-slate-800'}`}>
+            {isRecording ? `🔴 रिकॉर्डिंग... ${countdown}s में बंद हो जाएगी` : isProcessing ? '⏳ AI बायोमेट्रिक्स निकाल रहा है...' : '🎤 रिकॉर्डिंग और स्कैनिंग शुरू करें'}
           </button>
         </div>
       )}
+
       {testPhase === 'results' && (
         <div className="animate-in fade-in space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className={`p-4 rounded-2xl text-center border ${metrics.keywordsFound < 3 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
-              <div className={`text-2xl font-black ${metrics.keywordsFound < 3 ? 'text-rose-600' : 'text-emerald-600'}`}>{metrics.keywordsFound}</div>
-              <div className="text-[10px] uppercase font-bold text-slate-500 mt-1">Keywords Hit</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl text-center border bg-slate-50 border-slate-200">
+              <div className="text-3xl font-black text-indigo-600">{scores.speechAnalysis.clarity}%</div>
+              <div className="text-xs uppercase font-bold text-slate-500 mt-1">Vocal Clarity Score</div>
             </div>
-            <div className={`p-4 rounded-2xl text-center border ${metrics.hesitations > 3 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
-              <div className={`text-2xl font-black ${metrics.hesitations > 3 ? 'text-amber-600' : 'text-slate-800'}`}>{metrics.hesitations}</div>
-              <div className="text-[10px] uppercase font-bold text-slate-500 mt-1">Hesitations</div>
-            </div>
-            <div className={`p-4 rounded-2xl text-center border ${metrics.repetitions > 1 ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-100'}`}>
-              <div className={`text-2xl font-black ${metrics.repetitions > 1 ? 'text-rose-600' : 'text-slate-800'}`}>{metrics.repetitions}</div>
-              <div className="text-[10px] uppercase font-bold text-slate-500 mt-1">Repetitions</div>
+            <div className={`p-4 rounded-2xl text-center border ${metrics.facialScore < 50 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className={`text-3xl font-black ${metrics.facialScore < 50 ? 'text-rose-600' : 'text-emerald-600'}`}>{metrics.facialScore}%</div>
+              <div className="text-xs uppercase font-bold text-slate-500 mt-1">Facial Expressivity (Apathy)</div>
             </div>
           </div>
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-wrap gap-2">
-            <span className="text-xs font-bold text-slate-500 w-full mb-1">Detected Target Elements:</span>
-            {metrics.matchedWordsList.length > 0 ? metrics.matchedWordsList.map(kw => (
-              <span key={kw} className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold uppercase">{kw}</span>
-            )) : <span className="text-xs text-rose-500 font-bold">कोई मुख्य तत्व नहीं मिला (No key elements)</span>}
-          </div>
+          
           <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50">
             <p className="text-xs text-indigo-900 italic line-clamp-3">"{metrics.transcript}"</p>
           </div>

@@ -186,13 +186,13 @@ function MedicalIntakeForm() {
       {/* SVD Scores */}
       <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-100">
         <div>
-          <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SVD Simple Score</label>
+        <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SVD Simple Score <span className="text-amber-500/70 lowercase">(Optional / From MRI)</span></label>
           <input type="number" min="0" max="4" value={form.svdSimple}
             onChange={e => setForm(f => ({ ...f, svdSimple: e.target.value }))}
             className="w-full mt-1 p-2 bg-white border border-amber-200 rounded-lg text-amber-900 font-bold" />
         </div>
         <div>
-          <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SVD Amended Score</label>
+        <label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">SVD Amended Score <span className="text-amber-500/70 lowercase">(Optional / From MRI)</span></label>
           <input type="number" min="0" max="4" value={form.svdAmended}
             onChange={e => setForm(f => ({ ...f, svdAmended: e.target.value }))}
             className="w-full mt-1 p-2 bg-white border border-amber-200 rounded-lg text-amber-900 font-bold" />
